@@ -1,5 +1,7 @@
 # Build the flight-control demo executable.
 add_executable(UAVcontrol_system
+  "AdvancedSafety.cpp"
+  "AdvancedSafety.h"
   "UAVcontrol_system.cpp"
   "UAVcontrol_system.h"
 )

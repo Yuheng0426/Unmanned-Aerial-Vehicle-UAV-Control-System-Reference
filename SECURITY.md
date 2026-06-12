@@ -20,6 +20,7 @@ If you find a defect that could cause loss of control, bypass safety limits, arm
 - Treat stale commands, invalid position estimates, low voltage, and geofence breaches as safety events.
 - Treat altitude-limit bypasses as safety defects.
 - Treat battery thresholds and one-key return behavior as safety-critical logic.
+- Treat preflight gates, mission validation, and telemetry visibility as safety-critical support logic.
 - Real-hardware adaptation must pass simulation, bench tests, propeller-off tests, and controlled low-power tests.
 - Contributions that bypass laws, regulations, geofencing, or safety protections are not accepted.
 

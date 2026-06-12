@@ -1,3 +1,4 @@
+#include "AdvancedSafety.h"
 #include "UAVcontrol_system.h"
 
 #include <algorithm>
@@ -6,6 +7,7 @@
 #include <iostream>
 #include <numeric>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -530,22 +532,38 @@ int run_demo()
 {
 	FlightController controller;
 	DroneSimulator simulator;
+	MissionPlanner planner;
+	TelemetryEncoder telemetry;
 
-	ControlCommand command;
-	command.requested_mode = FlightMode::PositionHold;
-	command.target_altitude_m = 1.8;
-	command.target_position_m = {5.0, 0.0};
+	const LocalPosition home{};
+	const std::vector<MissionWaypoint> mission{
+		{{5.0, 0.0}, 1.8, 1000},
+		{{5.0, 4.0}, 1.8, 1000},
+	};
+	const MissionValidation validation = planner.validate(mission, home);
+	if (!validation.accepted) {
+		std::cerr << "Demo mission rejected by safety validator.\n";
+		for (const std::string& message : validation.messages) {
+			std::cerr << message << '\n';
+		}
+		return 1;
+	}
+
+	ControlCommand command = planner.command_for_waypoint(mission.front(), true);
 	command.arm_requested = true;
 
 	constexpr double dt_s = 0.02;
 	constexpr int steps = static_cast<int>(14.0 / dt_s);
 
 	std::cout << "time_s,armed,mode,north_m,east_m,altitude_m,roll_deg,pitch_deg,battery_v,m1,m2,m3,m4,status\n";
+	std::cout << "# telemetry: " << telemetry.to_csv_header() << '\n';
 
 	for (int i = 0; i <= steps; ++i) {
 		const double time_s = i * dt_s;
+		const MissionWaypoint& active_waypoint = time_s > 3.0 ? mission[1] : mission[0];
+		command = planner.command_for_waypoint(active_waypoint, true);
 		command.command_age_ms = 20;
-		command.one_key_return_to_launch = time_s > 7.0;
+		command.one_key_return_to_launch = time_s > 7.0 && time_s <= 11.0;
 		if (time_s > 11.0) {
 			command.requested_mode = FlightMode::Land;
 		}
@@ -560,6 +578,7 @@ int run_demo()
 
 		if (i % 25 == 0) {
 			const auto& state = simulator.state();
+			const auto frame = telemetry.snapshot(sample, controller, home);
 			std::cout << std::fixed << std::setprecision(2)
 					  << time_s << ','
 					  << (controller.armed() ? "yes" : "no") << ','
@@ -575,6 +594,7 @@ int run_demo()
 					  << motors[2] << ','
 					  << motors[3] << ','
 					  << controller.last_safety_message() << '\n';
+			std::cout << "# telemetry: " << telemetry.to_csv(frame) << '\n';
 		}
 	}
 
@@ -594,6 +614,10 @@ int run_self_test()
 	}
 
 	FlightController controller;
+	PreflightChecker preflight;
+	MissionPlanner planner;
+	SensorHealthMonitor health;
+	TelemetryEncoder telemetry;
 	ControlCommand command;
 	command.arm_requested = true;
 	command.requested_mode = FlightMode::PositionHold;
@@ -609,6 +633,12 @@ int run_self_test()
 
 	SensorSample normal{};
 	normal.battery_voltage_v = 12.2;
+	const PreflightReport preflight_report = preflight.evaluate(normal, command);
+	if (!preflight_report.ready_to_arm) {
+		std::cerr << "FAIL: preflight rejected safe simulated state\n";
+		return 1;
+	}
+
 	controller.update(normal, command, 0.02);
 	if (!controller.armed() || controller.mode() != FlightMode::PositionHold) {
 		std::cerr << "FAIL: controller did not arm into position hold\n";
@@ -658,6 +688,10 @@ int run_self_test()
 		std::cerr << "FAIL: obstacle did not activate avoidance\n";
 		return 1;
 	}
+	if (health.obstacle_health(obstacle) != HealthState::Warning) {
+		std::cerr << "FAIL: obstacle health did not report warning\n";
+		return 1;
+	}
 
 	SensorSample altitude_limit = away_from_home;
 	altitude_limit.battery_voltage_v = 12.2;
@@ -665,6 +699,31 @@ int run_self_test()
 	controller.update(altitude_limit, command, 0.02);
 	if (controller.mode() != FlightMode::Land) {
 		std::cerr << "FAIL: locked altitude limit did not force land\n";
+		return 1;
+	}
+
+	const std::vector<MissionWaypoint> valid_mission{
+		{{2.0, 0.0}, 1.5, 500},
+		{{3.0, 1.0}, 2.0, 500},
+	};
+	const MissionValidation valid_result = planner.validate(valid_mission, {});
+	if (!valid_result.accepted) {
+		std::cerr << "FAIL: valid mission was rejected\n";
+		return 1;
+	}
+
+	const std::vector<MissionWaypoint> invalid_mission{
+		{{2.0, 0.0}, SafetyConfig::locked_legal_altitude_limit_m + 1.0, 500},
+	};
+	const MissionValidation invalid_result = planner.validate(invalid_mission, {});
+	if (invalid_result.accepted) {
+		std::cerr << "FAIL: altitude-violating mission was accepted\n";
+		return 1;
+	}
+
+	const auto frame = telemetry.snapshot(normal, controller, {});
+	if (frame.battery_health != HealthState::Ok || frame.navigation_health != HealthState::Ok) {
+		std::cerr << "FAIL: telemetry health summary is incorrect\n";
 		return 1;
 	}
 

@@ -8,6 +8,9 @@ This project is currently a simulation reference. Validate each layer independen
 - `DroneSimulator::apply_motors`: replace with a carefully tested PWM, DShot, CAN, or other ESC output layer.
 - `ControlCommand` source: replace with radio-controller, ground-station, or companion-computer input that has authentication and timeout handling.
 - `ObstacleDistances`: replace with validated range sensors, perception, or a tested obstacle-detection stack.
+- `PreflightChecker`: keep or strengthen preflight gates before any hardware arming path.
+- `MissionPlanner`: keep mission validation ahead of any autonomous waypoint command path.
+- `TelemetryEncoder`: route safety telemetry to logs and operator-visible displays.
 - Fixed `dt_s`: replace with elapsed time from a monotonic clock.
 - Local position model: replace with a validated estimator and coordinate frame.
 
@@ -35,9 +38,10 @@ This project is currently a simulation reference. Validate each layer independen
 4. Validate command timeout, emergency stop, and low-voltage behavior.
 5. Validate one-key return-to-launch and forced battery return in simulation.
 6. Validate obstacle sensor behavior without motors connected.
-7. Verify motor direction with propellers removed.
-8. Run restrained low-power tests.
-9. Attempt low-altitude hover only in an open, legal, controlled area.
+7. Validate preflight rejection cases and mission rejection cases.
+8. Verify motor direction with propellers removed.
+9. Run restrained low-power tests.
+10. Attempt low-altitude hover only in an open, legal, controlled area.
 
 ## Risk Notice
 

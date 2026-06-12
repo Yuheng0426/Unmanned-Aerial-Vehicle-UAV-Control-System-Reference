@@ -9,6 +9,7 @@ Anyone who builds, modifies, tests, or flies a drone using ideas from this repos
 - Understanding the code and its limits.
 - Complying with all local laws, aviation rules, registration requirements, altitude limits, and airspace restrictions.
 - Keeping the locked altitude limit intact and using lower limits where local rules require them.
+- Treating preflight checks, sensor-health warnings, battery failsafes, and mission validation as minimum safety gates rather than optional suggestions.
 - Testing in simulation before hardware tests.
 - Testing with propellers removed before any powered propeller test.
 - Using safe locations away from people, vehicles, buildings, roads, airports, restricted areas, and power lines.
@@ -29,6 +30,7 @@ This project does not include many systems required by a real aircraft, includin
 - Magnetometer calibration
 - Flight logging suitable for incident review
 - Regulatory compliance validation
+- Certified autonomous obstacle avoidance or path planning
 
 ## Safe Use
 

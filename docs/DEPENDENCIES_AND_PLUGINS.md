@@ -6,7 +6,7 @@ No plugins were downloaded.
 
 ## Third-Party Code Libraries
 
-No third-party code libraries were added. The flight-control example uses only the C++ standard library.
+No third-party code libraries were added. The flight-control example and advanced safety helpers use only the C++ standard library.
 
 ## Build Tools
 

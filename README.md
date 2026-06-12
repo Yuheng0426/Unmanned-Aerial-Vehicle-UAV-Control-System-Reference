@@ -8,7 +8,7 @@ The reference controller includes a locked legal altitude limit of `120.0 m` as 
 
 Read [docs/DISCLAIMER.md](docs/DISCLAIMER.md) and [docs/ALTITUDE_LIMIT_POLICY.md](docs/ALTITUDE_LIMIT_POLICY.md) before studying or adapting the code.
 
-A C++20 educational UAV flight-control reference project for drone DIY learners, robotics students, and developers who want to study the structure of a safety-focused control loop. The current version is a **simulation-only teaching system** with PID stabilization, one-key return-to-launch, obstacle avoidance, flight modes, geofence logic, battery failsafes, command-link failsafe handling, event logging, and conservative command limiting.
+A C++20 educational UAV flight-control reference project for drone DIY learners, robotics students, and developers who want to study the structure of a safety-focused control loop. The current version is a **simulation-only teaching system** with PID stabilization, one-key return-to-launch, obstacle avoidance, preflight checks, sensor-health summaries, waypoint mission validation, telemetry snapshots, flight modes, geofence logic, battery failsafes, command-link failsafe handling, event logging, and conservative command limiting.
 
 > Safety disclaimer: this repository is not flight-ready firmware, not an aircraft certification package, and not permission to fly a UAV. It does not directly drive ESCs, motors, GPS modules, radio receivers, or real sensors. Anyone adapting this reference to hardware is responsible for simulation, bench testing, propeller-off testing, legal compliance, local airspace rules, safe operating areas, and all consequences of the aircraft's behavior.
 
@@ -22,6 +22,10 @@ A C++20 educational UAV flight-control reference project for drone DIY learners,
 - Reactive obstacle avoidance from front, back, left, right, up, and down distance readings.
 - Battery monitoring with low-battery warning, critical-battery forced return, very-low-battery forced landing, and emergency cutoff.
 - Safety systems: conservative arming checks, emergency stop, command-link timeout handling, geofence return, hard geofence disarm, and locked altitude limiting.
+- Preflight checker for battery, link freshness, attitude, position availability, and airborne-state checks.
+- Mission planner that rejects waypoints outside the geofence or locked altitude boundary.
+- Sensor-health monitor for navigation, obstacle, and battery state.
+- Telemetry encoder for CSV-style safety snapshots.
 - Built-in event log for mode transitions and safety actions.
 - Built-in `--self-test` mode for quick logic checks.
 - No third-party runtime libraries.
@@ -31,10 +35,13 @@ A C++20 educational UAV flight-control reference project for drone DIY learners,
 ```text
 .
 |-- UAVcontrol_system/
+|   |-- AdvancedSafety.cpp
+|   |-- AdvancedSafety.h
 |   |-- CMakeLists.txt
 |   |-- UAVcontrol_system.cpp
 |   `-- UAVcontrol_system.h
 |-- docs/
+|   |-- ADVANCED_FEATURES.md
 |   |-- ARCHITECTURE.md
 |   |-- ALTITUDE_LIMIT_POLICY.md
 |   |-- DEPENDENCIES_AND_PLUGINS.md
@@ -99,6 +106,7 @@ build\UAVcontrol_system\UAVcontrol_system.exe
 - Read `SafetyConfig` to understand the conservative safety boundaries.
 - Read `apply_failsafe_policy` for one-key return, command timeout, battery failsafes, geofence, and altitude behavior.
 - Read `apply_obstacle_avoidance` to see the simple reactive avoidance layer.
+- Read `AdvancedSafety.h` and [docs/ADVANCED_FEATURES.md](docs/ADVANCED_FEATURES.md) for preflight, mission validation, health monitoring, and telemetry snapshots.
 - Read `QuadXMixer` if you want to adapt the project to another airframe layout.
 - Read [docs/DISCLAIMER.md](docs/DISCLAIMER.md) and [docs/HARDWARE_ADAPTATION.md](docs/HARDWARE_ADAPTATION.md) before thinking about real hardware.
 

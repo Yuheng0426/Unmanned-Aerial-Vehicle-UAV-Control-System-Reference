@@ -1,11 +1,14 @@
 # Architecture
 
-This project is a simulation-only UAV control reference. It separates command validation, safety policy, battery failsafes, obstacle avoidance, control loops, motor mixing, and simulation so each part can be studied independently.
+This project is a simulation-only UAV control reference. It separates preflight checks, mission validation, command validation, safety policy, battery failsafes, obstacle avoidance, control loops, telemetry, motor mixing, and simulation so each part can be studied independently.
 
 ## Control Data Flow
 
 ```text
 ControlCommand + SensorSample
+        |
+        v
+PreflightChecker / MissionPlanner
         |
         v
 FlightController::update
@@ -23,11 +26,23 @@ QuadXMixer::mix
         |
         v
 Motor outputs in [0.0, 1.0]
+        |
+        v
+TelemetryEncoder snapshot
 ```
 
 ## `SafetyConfig`
 
 Collects conservative limits for voltage, tilt, geofence radius, obstacle distance, and command age. The legal altitude limit is intentionally locked as `SafetyConfig::locked_legal_altitude_limit_m` and is not a normal runtime setting.
+
+## `AdvancedSafety`
+
+`AdvancedSafety.h` and `AdvancedSafety.cpp` contain higher-level safety-support modules:
+
+- `PreflightChecker`: produces a go/no-go arming report.
+- `MissionPlanner`: rejects missions outside geofence or altitude limits.
+- `SensorHealthMonitor`: summarizes navigation, obstacle, and battery health.
+- `TelemetryEncoder`: emits compact safety telemetry frames.
 
 ## `FlightMode`
 
