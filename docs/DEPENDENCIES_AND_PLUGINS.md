@@ -1,6 +1,6 @@
 # Dependencies and Plugins
 
-## Plugins Downloaded During Preparation
+## Plugins Downloaded During This Update
 
 No plugins were downloaded.
 

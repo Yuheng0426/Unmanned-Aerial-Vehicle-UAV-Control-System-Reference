@@ -4,7 +4,7 @@ This project is for educational and research reference. It does not provide comp
 
 ## Reporting Issues
 
-If you find a defect that could cause loss of control, bypass safety limits, arm incorrectly, or produce unsafe motor outputs, please open a GitHub issue with:
+If you find a defect that could cause loss of control, bypass safety limits, arm incorrectly, ignore emergency stop, ignore geofence limits, or produce unsafe motor outputs, please open a GitHub issue with:
 
 - Reproduction steps
 - Expected behavior
@@ -15,6 +15,12 @@ If you find a defect that could cause loss of control, bypass safety limits, arm
 ## Safety Principles
 
 - Keep limits conservative by default.
-- Prefer shutting down output when safety checks fail.
+- Prefer return-to-launch or landing for soft failsafes.
+- Prefer shutting down output when hard safety checks fail.
+- Treat stale commands, invalid position estimates, low voltage, and geofence breaches as safety events.
 - Real-hardware adaptation must pass simulation, bench tests, propeller-off tests, and controlled low-power tests.
 - Contributions that bypass laws, regulations, geofencing, or safety protections are not accepted.
+
+## Responsible Scope
+
+This repository must not be used to support unsafe flights, flights near people, illegal airspace operations, weaponization, harmful payloads, or attempts to evade safety systems.
