@@ -20,6 +20,16 @@ struct LocalPosition {
 	double east_m{};
 };
 
+// Distance readings in meters from simple range sensors or an obstacle detector.
+struct ObstacleDistances {
+	double front_m{999.0};
+	double back_m{999.0};
+	double left_m{999.0};
+	double right_m{999.0};
+	double up_m{999.0};
+	double down_m{999.0};
+};
+
 // High-level flight modes used by the reference controller.
 enum class FlightMode {
 	Manual,
@@ -50,6 +60,7 @@ struct ControlCommand {
 	LocalPosition target_position_m{};
 	bool arm_requested{};
 	bool emergency_stop{};
+	bool one_key_return_to_launch{};
 	int command_age_ms{};
 };
 
@@ -62,17 +73,24 @@ struct SensorSample {
 	double altitude_m{};
 	double vertical_speed_m_s{};
 	double battery_voltage_v{};
+	ObstacleDistances obstacle_m{};
 	bool position_valid{true};
 };
 
-// Safety limits collected in one place so users can inspect and tune conservative defaults.
+// Safety limits collected in one place so users can inspect conservative defaults.
 struct SafetyConfig {
+	static constexpr double locked_legal_altitude_limit_m = 120.0;
+
 	double min_arm_voltage_v{10.8};
-	double min_flight_voltage_v{10.4};
+	double battery_warning_voltage_v{11.1};
+	double battery_return_voltage_v{10.7};
+	double battery_land_voltage_v{10.4};
+	double emergency_cutoff_voltage_v{9.8};
 	double max_arm_tilt_deg{10.0};
 	double max_flight_tilt_deg{55.0};
-	double max_altitude_m{25.0};
 	double geofence_radius_m{80.0};
+	double obstacle_warning_distance_m{4.0};
+	double obstacle_stop_distance_m{1.5};
 	int max_command_age_ms{500};
 };
 
@@ -132,6 +150,7 @@ private:
 	bool safety_allows_flight(const SensorSample& sample, const ControlCommand& command);
 	ControlCommand apply_failsafe_policy(const SensorSample& sample, const ControlCommand& command);
 	ControlCommand constrain_command(const SensorSample& sample, const ControlCommand& command);
+	void apply_obstacle_avoidance(const SensorSample& sample, double& roll_target_deg, double& pitch_target_deg, double& altitude_target_m);
 	LocalPosition home_or_current_position(const SensorSample& sample);
 	double distance_from_home(const SensorSample& sample) const;
 	void transition_to(FlightMode next_mode, const std::string& reason);

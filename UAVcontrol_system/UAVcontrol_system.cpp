@@ -35,6 +35,12 @@ double acceleration_to_attitude_deg(double acceleration_m_s2)
 	return clamp(acceleration_m_s2 * 3.0, -8.0, 8.0);
 }
 
+// Return true when a directional obstacle reading is close enough to require avoidance.
+bool obstacle_is_close(double distance_m, double threshold_m)
+{
+	return distance_m > 0.0 && distance_m < threshold_m;
+}
+
 }  // namespace
 
 namespace uav {
@@ -193,6 +199,8 @@ QuadXMixer::MotorOutputs FlightController::update(const SensorSample& sample, co
 		}
 	}
 
+	apply_obstacle_avoidance(sample, roll_target_deg, pitch_target_deg, altitude_target_m);
+
 	const double roll = roll_pid_.update(roll_target_deg, sample.attitude_deg.x, dt_s);
 	const double pitch = pitch_pid_.update(pitch_target_deg, sample.attitude_deg.y, dt_s);
 	const double yaw = yaw_rate_pid_.update(safe_command.target_yaw_rate_deg_s, sample.angular_rate_deg_s.z, dt_s);
@@ -288,8 +296,8 @@ bool FlightController::safety_allows_flight(const SensorSample& sample, const Co
 		return false;
 	}
 
-	if (sample.battery_voltage_v < safety_.min_flight_voltage_v) {
-		disarm("battery voltage too low");
+	if (sample.battery_voltage_v < safety_.emergency_cutoff_voltage_v) {
+		disarm("battery below emergency cutoff");
 		return false;
 	}
 
@@ -299,8 +307,8 @@ bool FlightController::safety_allows_flight(const SensorSample& sample, const Co
 		return false;
 	}
 
-	if (sample.altitude_m > safety_.max_altitude_m + 2.0) {
-		disarm("altitude limit exceeded");
+	if (sample.altitude_m > SafetyConfig::locked_legal_altitude_limit_m + 2.0) {
+		disarm("locked legal altitude limit exceeded");
 		return false;
 	}
 
@@ -317,6 +325,16 @@ ControlCommand FlightController::apply_failsafe_policy(const SensorSample& sampl
 {
 	ControlCommand safe_command = command;
 
+	if (safe_command.one_key_return_to_launch) {
+		if (sample.position_valid && home_set_) {
+			safe_command.requested_mode = FlightMode::ReturnToLaunch;
+			last_safety_message_ = "one-key return-to-launch active";
+		} else {
+			safe_command.requested_mode = FlightMode::Land;
+			last_safety_message_ = "one-key return unavailable, landing";
+		}
+	}
+
 	if (safe_command.command_age_ms > safety_.max_command_age_ms) {
 		if (sample.position_valid && home_set_) {
 			safe_command.requested_mode = FlightMode::ReturnToLaunch;
@@ -327,14 +345,29 @@ ControlCommand FlightController::apply_failsafe_policy(const SensorSample& sampl
 		}
 	}
 
+	if (sample.battery_voltage_v < safety_.battery_land_voltage_v) {
+		safe_command.requested_mode = FlightMode::Land;
+		last_safety_message_ = "battery critical: forced landing";
+	} else if (sample.battery_voltage_v < safety_.battery_return_voltage_v) {
+		if (sample.position_valid && home_set_) {
+			safe_command.requested_mode = FlightMode::ReturnToLaunch;
+			last_safety_message_ = "battery critical: forced return-to-launch";
+		} else {
+			safe_command.requested_mode = FlightMode::Land;
+			last_safety_message_ = "battery critical: position unavailable, landing";
+		}
+	} else if (sample.battery_voltage_v < safety_.battery_warning_voltage_v) {
+		last_safety_message_ = "battery warning: return soon";
+	}
+
 	if (home_set_ && distance_from_home(sample) > safety_.geofence_radius_m) {
 		safe_command.requested_mode = FlightMode::ReturnToLaunch;
 		last_safety_message_ = "failsafe: geofence return";
 	}
 
-	if (sample.altitude_m > safety_.max_altitude_m) {
+	if (sample.altitude_m > SafetyConfig::locked_legal_altitude_limit_m) {
 		safe_command.requested_mode = FlightMode::Land;
-		last_safety_message_ = "failsafe: altitude limit landing";
+		last_safety_message_ = "failsafe: locked altitude limit landing";
 	}
 
 	return safe_command;
@@ -347,7 +380,7 @@ ControlCommand FlightController::constrain_command(const SensorSample& sample, c
 	safe_command.target_roll_deg = clamp(safe_command.target_roll_deg, -12.0, 12.0);
 	safe_command.target_pitch_deg = clamp(safe_command.target_pitch_deg, -12.0, 12.0);
 	safe_command.target_yaw_rate_deg_s = clamp(safe_command.target_yaw_rate_deg_s, -90.0, 90.0);
-	safe_command.target_altitude_m = clamp(safe_command.target_altitude_m, 0.0, safety_.max_altitude_m);
+	safe_command.target_altitude_m = clamp(safe_command.target_altitude_m, 0.0, SafetyConfig::locked_legal_altitude_limit_m);
 
 	if (home_set_) {
 		const double distance = distance_between(safe_command.target_position_m, home_position_m_);
@@ -364,6 +397,52 @@ ControlCommand FlightController::constrain_command(const SensorSample& sample, c
 	}
 
 	return safe_command;
+}
+
+// Apply simple reactive obstacle avoidance on top of the selected flight mode.
+void FlightController::apply_obstacle_avoidance(
+	const SensorSample& sample,
+	double& roll_target_deg,
+	double& pitch_target_deg,
+	double& altitude_target_m)
+{
+	bool avoidance_active = false;
+
+	if (obstacle_is_close(sample.obstacle_m.front_m, safety_.obstacle_warning_distance_m)) {
+		pitch_target_deg = std::min(pitch_target_deg, -6.0);
+		avoidance_active = true;
+	}
+
+	if (obstacle_is_close(sample.obstacle_m.back_m, safety_.obstacle_warning_distance_m)) {
+		pitch_target_deg = std::max(pitch_target_deg, 6.0);
+		avoidance_active = true;
+	}
+
+	if (obstacle_is_close(sample.obstacle_m.left_m, safety_.obstacle_warning_distance_m)) {
+		roll_target_deg = std::max(roll_target_deg, 6.0);
+		avoidance_active = true;
+	}
+
+	if (obstacle_is_close(sample.obstacle_m.right_m, safety_.obstacle_warning_distance_m)) {
+		roll_target_deg = std::min(roll_target_deg, -6.0);
+		avoidance_active = true;
+	}
+
+	if (obstacle_is_close(sample.obstacle_m.down_m, safety_.obstacle_stop_distance_m)) {
+		altitude_target_m = std::max(altitude_target_m, sample.altitude_m + 0.5);
+		avoidance_active = true;
+	}
+
+	if (obstacle_is_close(sample.obstacle_m.up_m, safety_.obstacle_stop_distance_m)) {
+		altitude_target_m = std::min(altitude_target_m, sample.altitude_m);
+		avoidance_active = true;
+	}
+
+	altitude_target_m = clamp(altitude_target_m, 0.0, SafetyConfig::locked_legal_altitude_limit_m);
+
+	if (avoidance_active) {
+		last_safety_message_ = "obstacle avoidance active";
+	}
 }
 
 LocalPosition FlightController::home_or_current_position(const SensorSample& sample)
@@ -402,6 +481,7 @@ SensorSample DroneSimulator::sensors() const
 		state_.altitude_m,
 		state_.vertical_speed_m_s,
 		state_.battery_voltage_v,
+		ObstacleDistances{},
 		true,
 	};
 }
@@ -445,7 +525,7 @@ const VehicleState& DroneSimulator::state() const
 	return state_;
 }
 
-// Run a safety-focused demo with position hold, stale-command return, and automatic landing.
+// Run a safety-focused demo with position hold, obstacle avoidance, one-key return, and automatic landing.
 int run_demo()
 {
 	FlightController controller;
@@ -464,13 +544,18 @@ int run_demo()
 
 	for (int i = 0; i <= steps; ++i) {
 		const double time_s = i * dt_s;
-		command.command_age_ms = time_s > 7.0 ? 900 : 20;
+		command.command_age_ms = 20;
+		command.one_key_return_to_launch = time_s > 7.0;
 		if (time_s > 11.0) {
 			command.requested_mode = FlightMode::Land;
-			command.command_age_ms = 20;
 		}
 
-		const auto motors = controller.update(simulator.sensors(), command, dt_s);
+		auto sample = simulator.sensors();
+		if (time_s > 4.0 && time_s < 5.5) {
+			sample.obstacle_m.front_m = 2.0;
+		}
+
+		const auto motors = controller.update(sample, command, dt_s);
 		simulator.apply_motors(motors, dt_s);
 
 		if (i % 25 == 0) {
@@ -530,11 +615,56 @@ int run_self_test()
 		return 1;
 	}
 
+	SensorSample away_from_home = normal;
+	away_from_home.position_m.north_m = 10.0;
+
 	ControlCommand stale = command;
 	stale.command_age_ms = 900;
-	controller.update(normal, stale, 0.02);
+	controller.update(away_from_home, stale, 0.02);
 	if (controller.mode() != FlightMode::ReturnToLaunch) {
 		std::cerr << "FAIL: stale command did not trigger return-to-launch\n";
+		return 1;
+	}
+
+	ControlCommand one_key_return = command;
+	one_key_return.one_key_return_to_launch = true;
+	controller.update(away_from_home, one_key_return, 0.02);
+	if (controller.mode() != FlightMode::ReturnToLaunch) {
+		std::cerr << "FAIL: one-key return did not trigger return-to-launch\n";
+		return 1;
+	}
+
+	SensorSample battery_return = away_from_home;
+	battery_return.battery_voltage_v = 10.6;
+	controller.update(battery_return, command, 0.02);
+	if (controller.mode() != FlightMode::ReturnToLaunch) {
+		std::cerr << "FAIL: critical battery did not force return-to-launch\n";
+		return 1;
+	}
+
+	SensorSample battery_land = away_from_home;
+	battery_land.battery_voltage_v = 10.3;
+	controller.update(battery_land, command, 0.02);
+	if (controller.mode() != FlightMode::Land) {
+		std::cerr << "FAIL: landing battery threshold did not force land\n";
+		return 1;
+	}
+
+	SensorSample obstacle = away_from_home;
+	obstacle.battery_voltage_v = 12.2;
+	obstacle.obstacle_m.front_m = 2.0;
+	controller.update(obstacle, command, 0.02);
+	if (controller.last_safety_message() != "obstacle avoidance active") {
+		std::cerr << "FAIL: obstacle did not activate avoidance\n";
+		return 1;
+	}
+
+	SensorSample altitude_limit = away_from_home;
+	altitude_limit.battery_voltage_v = 12.2;
+	altitude_limit.altitude_m = SafetyConfig::locked_legal_altitude_limit_m + 0.5;
+	controller.update(altitude_limit, command, 0.02);
+	if (controller.mode() != FlightMode::Land) {
+		std::cerr << "FAIL: locked altitude limit did not force land\n";
 		return 1;
 	}
 

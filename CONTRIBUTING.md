@@ -19,10 +19,12 @@ ctest --test-dir build --output-on-failure
 
 - Add short English comments above important classes, functions, and safety logic.
 - Do not describe unvalidated real-hardware control code as flight-ready.
+- Do not raise, bypass, disable, or weaken `SafetyConfig::locked_legal_altitude_limit_m`.
 - When adding an external library, update `docs/DEPENDENCIES_AND_PLUGINS.md` with its download link, purpose, and license.
 
 ## Out of Scope
 
 - Features that bypass laws, geofencing, regulatory limits, or safety protections.
+- Changes that weaken the locked altitude limit or hide the legal disclaimer.
 - Payload, evasion, or tracking-avoidance functionality intended for harmful use.
 - Real-flight control changes without clear risk documentation.

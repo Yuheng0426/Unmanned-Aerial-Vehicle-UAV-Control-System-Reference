@@ -7,10 +7,11 @@ This repository is an educational software reference. It is not a certified auto
 Anyone who builds, modifies, tests, or flies a drone using ideas from this repository is responsible for:
 
 - Understanding the code and its limits.
-- Complying with all local laws, aviation rules, registration requirements, and airspace restrictions.
+- Complying with all local laws, aviation rules, registration requirements, altitude limits, and airspace restrictions.
+- Keeping the locked altitude limit intact and using lower limits where local rules require them.
 - Testing in simulation before hardware tests.
 - Testing with propellers removed before any powered propeller test.
-- Using safe locations away from people, animals, vehicles, buildings, roads, airports, restricted areas, and power lines.
+- Using safe locations away from people, vehicles, buildings, roads, airports, restricted areas, and power lines.
 - Designing independent emergency stop and power-cut mechanisms.
 - Accepting responsibility for property damage, injury, flyaway events, legal violations, or other consequences.
 
@@ -32,3 +33,5 @@ This project does not include many systems required by a real aircraft, includin
 ## Safe Use
 
 Use this project to study control-system structure, safety-state design, and simulator behavior. Do not connect it directly to motors or flight hardware without a complete independent engineering review.
+
+If a drone made from ideas in this repository flies away, enters unsafe airspace, exceeds legal limits, damages property, or injures anyone, responsibility remains with the builder and operator.

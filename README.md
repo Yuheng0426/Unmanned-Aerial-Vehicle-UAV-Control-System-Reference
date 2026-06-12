@@ -1,6 +1,14 @@
 # UAVcontrol_system
 
-A C++20 educational UAV flight-control reference project for drone DIY learners, robotics students, and developers who want to study the structure of a safety-focused control loop. The current version is a **simulation-only teaching system** with PID stabilization, flight modes, geofence logic, command-link failsafe handling, event logging, and conservative command limiting.
+## Read This First: Safety and Legal Notice
+
+This repository is a **simulation-only educational reference**. It is not flight-ready firmware, not an aircraft certification package, not a product, and not permission to fly a UAV. Any builder or operator is responsible for local aviation laws, registration, airspace restrictions, safe test locations, independent emergency stop design, and all consequences of the aircraft's behavior.
+
+The reference controller includes a locked legal altitude limit of `120.0 m` as a conservative software boundary. Do not raise, bypass, disable, or weaken this limit. Some locations require lower limits, and local law always takes priority. If anyone changes the altitude limit or uses the project in violation of law or safety practice, they accept full responsibility for the outcome.
+
+Read [docs/DISCLAIMER.md](docs/DISCLAIMER.md) and [docs/ALTITUDE_LIMIT_POLICY.md](docs/ALTITUDE_LIMIT_POLICY.md) before studying or adapting the code.
+
+A C++20 educational UAV flight-control reference project for drone DIY learners, robotics students, and developers who want to study the structure of a safety-focused control loop. The current version is a **simulation-only teaching system** with PID stabilization, one-key return-to-launch, obstacle avoidance, flight modes, geofence logic, battery failsafes, command-link failsafe handling, event logging, and conservative command limiting.
 
 > Safety disclaimer: this repository is not flight-ready firmware, not an aircraft certification package, and not permission to fly a UAV. It does not directly drive ESCs, motors, GPS modules, radio receivers, or real sensors. Anyone adapting this reference to hardware is responsible for simulation, bench testing, propeller-off testing, legal compliance, local airspace rules, safe operating areas, and all consequences of the aircraft's behavior.
 
@@ -10,7 +18,10 @@ A C++20 educational UAV flight-control reference project for drone DIY learners,
 - Quad X-frame motor mixer with motor outputs clamped to `0.0` through `1.0`.
 - PID controllers for roll, pitch, yaw rate, altitude, and local-position hold.
 - Flight modes: manual, altitude hold, position hold, return-to-launch, and land.
-- Safety systems: conservative arming checks, low-voltage protection, emergency stop, command-link timeout handling, geofence return, hard geofence disarm, and altitude limiting.
+- One-key return-to-launch command for immediate return behavior when position is valid.
+- Reactive obstacle avoidance from front, back, left, right, up, and down distance readings.
+- Battery monitoring with low-battery warning, critical-battery forced return, very-low-battery forced landing, and emergency cutoff.
+- Safety systems: conservative arming checks, emergency stop, command-link timeout handling, geofence return, hard geofence disarm, and locked altitude limiting.
 - Built-in event log for mode transitions and safety actions.
 - Built-in `--self-test` mode for quick logic checks.
 - No third-party runtime libraries.
@@ -25,6 +36,7 @@ A C++20 educational UAV flight-control reference project for drone DIY learners,
 |   `-- UAVcontrol_system.h
 |-- docs/
 |   |-- ARCHITECTURE.md
+|   |-- ALTITUDE_LIMIT_POLICY.md
 |   |-- DEPENDENCIES_AND_PLUGINS.md
 |   |-- DISCLAIMER.md
 |   `-- HARDWARE_ADAPTATION.md
@@ -85,7 +97,8 @@ build\UAVcontrol_system\UAVcontrol_system.exe
 
 - Start with `FlightController::update` to see the full control cycle.
 - Read `SafetyConfig` to understand the conservative safety boundaries.
-- Read `apply_failsafe_policy` for command timeout, geofence, and altitude failsafes.
+- Read `apply_failsafe_policy` for one-key return, command timeout, battery failsafes, geofence, and altitude behavior.
+- Read `apply_obstacle_avoidance` to see the simple reactive avoidance layer.
 - Read `QuadXMixer` if you want to adapt the project to another airframe layout.
 - Read [docs/DISCLAIMER.md](docs/DISCLAIMER.md) and [docs/HARDWARE_ADAPTATION.md](docs/HARDWARE_ADAPTATION.md) before thinking about real hardware.
 

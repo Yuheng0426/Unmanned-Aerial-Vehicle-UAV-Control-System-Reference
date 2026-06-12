@@ -4,7 +4,7 @@ This project is for educational and research reference. It does not provide comp
 
 ## Reporting Issues
 
-If you find a defect that could cause loss of control, bypass safety limits, arm incorrectly, ignore emergency stop, ignore geofence limits, or produce unsafe motor outputs, please open a GitHub issue with:
+If you find a defect that could cause loss of control, bypass safety limits, arm incorrectly, ignore emergency stop, ignore geofence limits, ignore the locked altitude limit, ignore forced battery return, ignore obstacle avoidance, or produce unsafe motor outputs, please open a GitHub issue with:
 
 - Reproduction steps
 - Expected behavior
@@ -18,6 +18,8 @@ If you find a defect that could cause loss of control, bypass safety limits, arm
 - Prefer return-to-launch or landing for soft failsafes.
 - Prefer shutting down output when hard safety checks fail.
 - Treat stale commands, invalid position estimates, low voltage, and geofence breaches as safety events.
+- Treat altitude-limit bypasses as safety defects.
+- Treat battery thresholds and one-key return behavior as safety-critical logic.
 - Real-hardware adaptation must pass simulation, bench tests, propeller-off tests, and controlled low-power tests.
 - Contributions that bypass laws, regulations, geofencing, or safety protections are not accepted.
 
